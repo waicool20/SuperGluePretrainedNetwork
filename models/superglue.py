@@ -241,27 +241,31 @@ class SuperGlue(torch.jit.ScriptModule):
             self.weights))
 
     @torch.jit.script_method
-    def forward(self, data: Dict[str, torch.Tensor]):
+    def forward(self, img0: torch.Tensor, kpts0: torch.Tensor, score0: torch.Tensor, desc0: torch.Tensor, img1: torch.Tensor, kpts1: torch.Tensor, score1: torch.Tensor, desc1: torch.Tensor):
         """Run SuperGlue on a pair of keypoints and descriptors"""
-        desc0, desc1 = data['descriptors0'], data['descriptors1']
-        kpts0, kpts1 = data['keypoints0'], data['keypoints1']
+        #(img0, kpts0, score0, desc0, img1, kpts1, score1, desc1) = data
 
         if kpts0.shape[1] == 0 or kpts1.shape[1] == 0:  # no keypoints
             shape0, shape1 = kpts0.shape[:-1], kpts1.shape[:-1]
-            return {
-                'matches0': kpts0.new_full(shape0, -1, dtype=torch.int),
-                'matches1': kpts1.new_full(shape1, -1, dtype=torch.int),
-                'matching_scores0': kpts0.new_zeros(shape0),
-                'matching_scores1': kpts1.new_zeros(shape1),
-            }
+            return [
+                kpts0.new_full(shape0, -1, dtype=torch.int),
+                kpts1.new_full(shape1, -1, dtype=torch.int),
+                kpts0.new_zeros(shape0),
+                kpts1.new_zeros(shape1)
+            ]
 
         # Keypoint normalization.
-        kpts0 = normalize_keypoints(kpts0, data['image0'].shape)
-        kpts1 = normalize_keypoints(kpts1, data['image1'].shape)
+        kpts0 = normalize_keypoints(kpts0, img0.shape)
+        kpts1 = normalize_keypoints(kpts1, img1.shape)
 
         # Keypoint MLP encoder.
-        desc0 = desc0 + self.kenc(kpts0, data['scores0'])
-        desc1 = desc1 + self.kenc(kpts1, data['scores1'])
+        desc0 = desc0 + self.kenc(kpts0, score0)
+        desc1 = desc1 + self.kenc(kpts1, score1)
+
+
+        # Keypoint MLP encoder.
+        desc0 = desc0 + self.kenc(kpts0, score0)
+        desc1 = desc1 + self.kenc(kpts1, score1)
 
         # Multi-layer Transformer network.
         desc0, desc1 = self.gnn(desc0, desc1)
@@ -291,9 +295,9 @@ class SuperGlue(torch.jit.ScriptModule):
         indices0 = torch.where(valid0, indices0, torch.tensor(-1).to(indices0))
         indices1 = torch.where(valid1, indices1, torch.tensor(-1).to(indices1))
 
-        return {
-            'matches0': indices0, # use -1 for invalid match
-            'matches1': indices1, # use -1 for invalid match
-            'matching_scores0': mscores0,
-            'matching_scores1': mscores1,
-        }
+        return [
+            indices0, # use -1 for invalid match
+            indices1, # use -1 for invalid match
+            mscores0,
+            mscores1,
+        ]

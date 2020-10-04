@@ -59,26 +59,20 @@ class Matching(torch.nn.Module):
         Args:
           data: dictionary with minimal keys: ['image0', 'image1']
         """
+        img0 = data[0]
+        img1 = data[1]
         pred = {}
 
         # Extract SuperPoint (keypoints, scores, descriptors) if not provided
         if 'keypoints0' not in data:
-            pred0 = self.superpoint(data['image0'])
-            pred = {**pred, **{k+'0': v for k, v in pred0.items()}}
+            pred0 = self.superpoint(img0)
         if 'keypoints1' not in data:
-            pred1 = self.superpoint(data['image1'])
-            pred = {**pred, **{k+'1': v for k, v in pred1.items()}}
+            pred1 = self.superpoint(img1)
 
         # Batch all features
         # We should either have i) one image per batch, or
         # ii) the same number of local features for all images in the batch.
-        data = {**data, **pred}
-
-        for k in data:
-            if isinstance(data[k], (list, tuple)):
-                data[k] = torch.stack(data[k])
+        data = [img0, ] + pred0 + [img1, ] + pred1
 
         # Perform the matching
-        pred = {**pred, **self.superglue(data)}
-
-        return pred
+        return pred0 + pred1 + self.superglue(img0, *pred0, img1, *pred1)

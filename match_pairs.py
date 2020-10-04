@@ -271,10 +271,9 @@ if __name__ == '__main__':
 
         if do_match:
             # Perform the matching.
-            pred = matching({'image0': inp0, 'image1': inp1})
-            pred = {k: v[0].cpu().numpy() for k, v in pred.items()}
-            kpts0, kpts1 = pred['keypoints0'], pred['keypoints1']
-            matches, conf = pred['matches0'], pred['matching_scores0']
+            pred = matching([inp0, inp1])
+            pred = [i[0].cpu().numpy() for i in pred]
+            kpts0, _, _, kpts1, _, _, matches, _, conf, _ = pred
             timer.update('matcher')
 
             # Write the matches to disk.
@@ -285,6 +284,7 @@ if __name__ == '__main__':
         # Keep the matching keypoints.
         valid = matches > -1
         mkpts0 = kpts0[valid]
+        _matches = matches[valid]
         mkpts1 = kpts1[matches[valid]]
         mconf = conf[valid]
 

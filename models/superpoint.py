@@ -200,9 +200,9 @@ class SuperPoint(torch.jit.ScriptModule):
             descriptors_out.append(sample_descriptors(k.unsqueeze(0), descriptors[i].unsqueeze(0), 8)[0])
             keypoints.append(k)
             scores_out.append(s)
+        
+        keypoints = torch.stack(keypoints)
+        scores_out = torch.stack(scores_out)
+        descriptors_out = torch.stack(descriptors_out)
 
-        return {
-            'keypoints': keypoints,
-            'scores': scores_out,
-            'descriptors': descriptors_out,
-        }
+        return [keypoints, scores_out, descriptors_out]        
